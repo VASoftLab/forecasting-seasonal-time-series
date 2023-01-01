@@ -1,0 +1,63 @@
+Dear Dr. Kramar,
+
+Thank you for your feedback.
+
+Your work looks great and it fit the scope of Algorithms very well. I
+will arrange the discount for you.
+
+For your convenience, I also list some tips for your submission.
+Hope this is useful for you.
+
+--------------------------------------------------------------------
+When you submit your paper to our journal:
+
+(1) You will need to prepare your manuscript using our journal's
+template (see the Instructions for Authors:
+https://www.mdpi.com/journal/algorithms/instructions). Moreover, you
+could submit a cover letter including the simple introduction of your
+paper and indicating you are invited by Stella Xu, so that I can check
+your submission and apply for the discount;
+(2) Please register (http://susy.mdpi.com/user/register/) and log in
+(http://susy.mdpi.com/user/login/) to the system before your submission.
+Please check junk or spam mail box if you have not received the active
+link of your account;
+(3) After registration, please access the link
+(https://susy.mdpi.com/user/manuscripts/upload), and enter your account,
+click "Submit Manuscript" under Submissions Menu;
+(4) Choose "Yes" for the option "Used template?" and upload your source
+file (Word/Latex Zip);
+(5) Fill in manuscript details from Steps 1 to 5:
+Journal: Algorithms
+Research Topics:
+(6) Click the "submit" button after you finish all the steps. An
+auto-generated email will send to your mailbox to inform you that your
+submission is successful.
+
+Please tell us your manuscript ID after you submit it successfully, so
+that we can check your submission.
+
+Best wishes,
+
+Ms. Stella Xu/MDPI
+Assistant Editor
+Algorithms (http://www.mdpi.com/journal/Algorithms)
+
+*Good News*: Algorithms will receive an Impact Factor from Web of
+Science in June 2023.
+https://www.mdpi.com/about/announcements/4252
+
+Welcome to follow our Twitter (@Algorithms_MDPI) to check the updated news.
+https://twitter.com/Algorithms_MDPI
+
+Top Cited Papers:
+1. COVID-19 Outbreak Prediction with Machine Learning
+http://www.mdpi.com/1999-4893/13/10/249
+2. Optimizing Convolutional Neural Network Hyperparameters by Enhanced
+Swarm Intelligence Metaheuristics
+https://www.mdpi.com/1999-4893/13/3/67
+
+Disclaimer: The information contained in this message is confidential
+and intended solely for the use of the individual or entity to whom they
+are addressed. If you have received this message in error, please inform
+us by an email reply and then delete the message. You may not copy this
+message in its entirety or in part, or disclose its contents to anyone.

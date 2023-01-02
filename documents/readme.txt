@@ -8,3 +8,13 @@ The input to Prophet is always a dataframe with two columns: ds and y. The ds (d
 Ссылки Prophet
 https://facebook.github.io/prophet/docs/quick_start.html
 https://machinelearningmastery.com/time-series-forecasting-with-prophet-in-python/
+
+
+Предварительная обработка
+Прогнать через фильтр?
+https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.filtfilt.html
+
+Установка Prophet
+https://pypi.org/project/prophet/
+Устранение ошибки plotly
+https://stackoverflow.com/questions/67371645/i-am-getting-error-in-plotly-module-of-fb-prophet

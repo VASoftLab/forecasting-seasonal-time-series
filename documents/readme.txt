@@ -18,3 +18,11 @@ https://docs.scipy.org/doc/scipy/reference/generated/scipy.signal.filtfilt.html
 https://pypi.org/project/prophet/
 Устранение ошибки plotly
 https://stackoverflow.com/questions/67371645/i-am-getting-error-in-plotly-module-of-fb-prophet
+
+
+Примеры реализации Prophet
+https://habr.com/ru/company/ods/blog/323730/
+https://mlcourse.ai/book/topic09/topic9_part2_facebook_prophet.html
+
+Добавить ссылку на статью
+chrome-extension://efaidnbmnnnibpcajpcglclefindmkaj/https://facebook.github.io/prophet/static/prophet_paper_20170113.pdf

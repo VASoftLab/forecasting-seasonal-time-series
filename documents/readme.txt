@@ -25,4 +25,9 @@ https://habr.com/ru/company/ods/blog/323730/
 https://mlcourse.ai/book/topic09/topic9_part2_facebook_prophet.html
 
 Добавить ссылку на статью
-chrome-extension://efaidnbmnnnibpcajpcglclefindmkaj/https://facebook.github.io/prophet/static/prophet_paper_20170113.pdf
+https://facebook.github.io/prophet/static/prophet_paper_20170113.pdf
+
+
+TODO
+Визуализацию предсказания выполнить с помощью функции
+https://matplotlib.org/stable/gallery/lines_bars_and_markers/fill_between_demo.html#sphx-glr-gallery-lines-bars-and-markers-fill-between-demo-py

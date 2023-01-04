@@ -31,3 +31,30 @@ https://facebook.github.io/prophet/static/prophet_paper_20170113.pdf
 TODO
 Визуализацию предсказания выполнить с помощью функции
 https://matplotlib.org/stable/gallery/lines_bars_and_markers/fill_between_demo.html#sphx-glr-gallery-lines-bars-and-markers-fill-between-demo-py
+
+
+
+SARIMAX
+https://machinelearningmastery.com/sarima-for-time-series-forecasting-in-python/
+https://www.statsmodels.org/dev/generated/statsmodels.tsa.statespace.sarimax.SARIMAX.html
+https://analyticsindiamag.com/complete-guide-to-sarimax-in-python-for-time-series-modeling/
+
+SARIMAX Introdaction
+https://www.statsmodels.org/v0.13.0/examples/notebooks/generated/statespace_sarimax_stata.html
+SARIMAX FAQ
+https://www.statsmodels.org/dev/examples/notebooks/generated/statespace_sarimax_faq.html
+How to use SARIMAX
+https://www.kaggle.com/code/poiupoiu/how-to-use-sarimax/notebook
+
+
+Kagle
+https://www.kaggle.com/code/sadeght/arima-sarima-simple-clear-analysis
+https://www.kaggle.com/code/poiupoiu/how-to-use-sarimax
+Поиск параметров
+https://www.kaggle.com/code/prashant111/arima-model-for-time-series-forecasting
+
+https://pypi.org/project/pmdarima/
+
+uncertainty interval
+https://www.geeksforgeeks.org/how-to-calculate-confidence-intervals-in-python/
+https://stackoverflow.com/questions/15033511/compute-a-confidence-interval-from-sample-data

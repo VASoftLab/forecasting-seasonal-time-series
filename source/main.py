@@ -42,9 +42,18 @@ fset.boxTextSize = 14
 # Путь к корневой папке проекта
 dir_name = os.path.dirname(__file__)
 
+# Горизонт прогноза в часах
+forecast_horizon = 0
+
+# Датафреймы для обучающей и тестовой выборки
+df_train = pd.DataFrame()
+df_test = pd.DataFrame()
+df_date = pd.DataFrame()
+
 
 # Предварительная обработка данных
-def data_preprocessing(report_file_name: str, column_name: str, data_file_name: str):
+def data_preprocessing(report_file_name: str, column_name: str, data_file_name: str,
+                       start_date_train, end_date_train, start_date_test, end_date_test, add_hour):
     """
     Функция предварительной обработки данных
     :param report_file_name: string - Полный путь к входному файлу с данными
@@ -59,47 +68,60 @@ def data_preprocessing(report_file_name: str, column_name: str, data_file_name: 
     print('\nInitial dataframe')
     print(df.head())
 
-    # Новый датафрейм
-    new_df = df[['DT', column_name]]
-    # Установка индекса
-    new_df = new_df.set_index('DT')
-    new_df = new_df[(new_df.index >= dt.datetime(2022, 12, 12)) &
-                    (new_df.index < dt.datetime(2022, 12, 31))]
+    # Формируем новый датасет только из двух столбцов - дата (DS) и значение (ColumnName)
+    df_new = df[['DT', column_name]]
+    df_new = df_new.set_index('DT')
+
     # Передискретизация / Resample
     # W - неделя
     # D - календарный день
     # H - час
     # T - минута
     # S - секунда
-    avg_df = pd.DataFrame(data=new_df[column_name].resample('H').mean())
+
+    df_resample = pd.DataFrame(data=df_new[column_name].resample('H').mean())
+
+    # Новый датафрейм
+    # new_df = df_resample[['DT', column_name]]
+    # Установка индекса
+    # new_df = new_df.set_index('DT')
+
+    # Фильтрация по временному кадру
+    if add_hour:
+        df_resample = df_resample[(df_resample.index >= start_date_train) & (df_resample.index <= end_date_test)]
+    else:
+        df_resample = df_resample[(df_resample.index >= start_date_train) & (df_resample.index < end_date_test)]
+
     # Изменяем заголовок столбца
-    avg_df.columns = ['Measurement']
+    df_resample.columns = ['Measurement']
     print('\nResampled dataframe')
-    print(avg_df.head())
+    print(df_resample.head())
     # Сохранить новый датафрейм в файл
-    avg_df.to_csv(data_file_name)
+    df_resample.to_csv(data_file_name)
     print(f'\nNew file saved to {data_file_name}')
     print(f'\nExecution time: {(time.time() - start_time):3.2f} sec.')
 
     # Визуализация
-    values = avg_df['Measurement']
+    values = df_resample['Measurement']
     fig, ax = plt.subplots(figsize=(fset.figWidth, fset.figHeight))
     fig.set_dpi(fset.dpi)
     ax.plot(values)
-    ax.axvline(x=dt.datetime(2022, 12, 29), color='g', alpha=0.5)
-    ax.axvline(x=dt.datetime(2022, 12, 31), color='g', alpha=0.5)
+    ax.axvline(x=start_date_test, color='g', alpha=0.5)
+    ax.axvline(x=end_date_test, color='g', alpha=0.5)
 
-    ax.axvspan(dt.datetime(2022, 12, 29),
-               dt.datetime(2022, 12, 31), color='g', alpha=0.2)
+    ax.axvspan(start_date_test,
+               end_date_test, color='g', alpha=0.2)
     bbox_props = dict(boxstyle="round", fc="w", ec="0.5", alpha=0.9)
-    ax.text(dt.datetime(2022, 12, 21), 8.5, "   Train Data   ",
+
+    avg_date_train = start_date_train + (end_date_train - start_date_train) / 2
+    ax.text(avg_date_train, 8.5, "   Train Data   ",
             ha="center", va="center", size=fset.boxTextSize, bbox=bbox_props)
-    ax.text(dt.datetime(2022, 12, 30), 8.5, "Test Data",
+    avg_date_test = start_date_test + (end_date_test - start_date_test) / 2
+    ax.text(avg_date_test, 8.5, "Test Data",
             ha="center", va="center", size=fset.boxTextSize, bbox=bbox_props)
 
     plt.grid(color='0.75', linestyle='--', linewidth=0.5)
-    plt.title('History Horizont', style='italic', fontsize=fset.labelXSize)
-    # plt.xlabel('History Horizont', style='italic', fontsize=fset.labelXSize)
+    plt.title('History Horizon', style='italic', fontsize=fset.labelXSize)
     plt.ylabel('Measurement', style='italic', fontsize=fset.labelYSize)
 
     ax.xaxis.set_major_locator(mdates.DayLocator(interval=1))
@@ -111,14 +133,18 @@ def data_preprocessing(report_file_name: str, column_name: str, data_file_name: 
     plt.savefig(fname=os.path.realpath(os.path.join(os.path.dirname(__file__), '..', 'img', 'Fig1.png')), dpi=fset.dpi,
                 bbox_inches='tight')
 
+    plt.ylim(2, 9)
+
     manager = plt.get_current_fig_manager()
     manager.full_screen_toggle()
     plt.show()
 
 
 # Оценка производительности метода
-def performance_evaluation(y_true: pd.DataFrame, y_pred: pd.DataFrame, method_name: str,
-                           save_to_file: bool = True, overwrite: bool = False):
+def performance_evaluation(y_true: pd.DataFrame,
+                           y_pred: pd.DataFrame,
+                           method_name: str,
+                           save_to_file: bool = True):
 
     r2_value = r2(y_true, y_pred)
     mse_value = mse(y_true, y_pred)
@@ -135,11 +161,7 @@ def performance_evaluation(y_true: pd.DataFrame, y_pred: pd.DataFrame, method_na
 
     if save_to_file:
         report_file = os.path.realpath(os.path.join(dir_name, '..', 'data', 'forecasting-report.txt'))
-
-        if overwrite:
-            f = open(report_file, 'w')
-        else:
-            f = open(report_file, 'a')
+        f = open(report_file, 'a')
 
         print(f'#################### {datetime.now().strftime("%d/%m/%Y %H:%M:%S")} ####################', file=f)
         print(f'Performance Evaluation for {method_name.upper()} method\n', file=f)
@@ -165,7 +187,7 @@ def performance_visualisation(x_date, y_true, y_pred, ypred_lower, ypred_upper, 
     ax.legend(['Predicted Value', 'Actual Value'], fontsize=fset.legendFontSize, loc='lower right')
 
     plt.grid(color='0.75', linestyle='--', linewidth=0.5)
-    plt.title(f'{method_name.upper()} Forecast Horizont', style='italic', fontsize=fset.titleFontSize)
+    plt.title(f'{method_name.upper()} Forecast Horizon', style='italic', fontsize=fset.titleFontSize)
     plt.ylabel('Measurement', style='italic', fontsize=fset.labelYSize)
 
     plt.ylim(2, 9)
@@ -183,27 +205,13 @@ def performance_visualisation(x_date, y_true, y_pred, ypred_lower, ypred_upper, 
 
 
 # Прогнозирование с помощью метода Prophet
-def prophet_forecasting(data_file_name: str):
-    # https://facebook.github.io/prophet/docs/quick_start.html
+def prophet_forecasting():
     start_time = time.time()
-    df = pd.read_csv(data_file_name, parse_dates=['DT'])
-    df.rename(columns={'DT': 'ds', 'Measurement': 'y'}, inplace=True)
-    print('\nProphet dataframe YYYY-MM-DD HH:MM:SS')
-    print(df)
-
-    # Обучающая и тестовая выборки
-    df_train = df[(df['ds'] >= dt.datetime(2022, 12, 12)) & (df['ds'] < dt.datetime(2022, 12, 29))]
-    print('\nTrain dataset')
-    print(df_train)
-
-    df_test = df[(df['ds'] >= dt.datetime(2022, 12, 29)) & (df['ds'] < dt.datetime(2022, 12, 31))]
-    print('\nTest dataset')
-    print(df_test)
 
     # Создание объекта Prophet
     m = Prophet()
     m.fit(df_train)
-    future = m.make_future_dataframe(periods=48, freq='60min', include_history=False)
+    future = m.make_future_dataframe(periods=forecast_horizon, freq='60min', include_history=False)
     print('\nProphet future')
     print(future)
 
@@ -220,22 +228,16 @@ def prophet_forecasting(data_file_name: str):
     ypred_lower = forecast['yhat_lower']
     ypred_upper = forecast['yhat_upper']
 
-    performance_evaluation(y_true, y_pred, 'Prophet', overwrite=True)
+    performance_evaluation(y_true, y_pred, 'Prophet')
     performance_visualisation(x_date, y_true, y_pred, ypred_lower, ypred_upper, 'Prophet', 'Fig2.png')
 
 
 # Настройка модели SARIMA
-def sarima_tuning(data_file_name: str):
+def sarima_tuning():
+
     start_time = time.time()
     report_file = os.path.realpath(os.path.join(dir_name, '..', 'data', 'forecasting-report.txt'))
     f = open(report_file, 'a')
-
-    df = pd.read_csv(data_file_name, parse_dates=['DT'])
-    df.rename(columns={'DT': 'ds', 'Measurement': 'y'}, inplace=True)
-
-    # Обучающая и тестовая выборки
-    df_train = df[(df['ds'] >= dt.datetime(2022, 12, 12)) & (df['ds'] < dt.datetime(2022, 12, 29))]
-    df_test = df[(df['ds'] >= dt.datetime(2022, 12, 29)) & (df['ds'] < dt.datetime(2022, 12, 31))]
 
     # Данные
     data = df_train['y']
@@ -288,28 +290,24 @@ def sarima_tuning(data_file_name: str):
 
 
 # Прогнозирование с помощью метода SARIMA
-def sarima_forecasting(data_file_name: str):
+def sarima_forecasting():
+
     start_time = time.time()
     report_file = os.path.realpath(os.path.join(dir_name, '..', 'data', 'forecasting-report.txt'))
     f = open(report_file, 'a')
 
-    df = pd.read_csv(data_file_name, parse_dates=['DT'])
-    df.rename(columns={'DT': 'ds', 'Measurement': 'y'}, inplace=True)
-
-    # Обучающая и тестовая выборки
-    df_train = df[(df['ds'] >= dt.datetime(2022, 12, 12)) & (df['ds'] < dt.datetime(2022, 12, 29))]
-    df_test = df[(df['ds'] >= dt.datetime(2022, 12, 29)) & (df['ds'] < dt.datetime(2022, 12, 31))]
-
     # Данные
     data = df_train['y']
+
     m = SARIMAX(data, order=(3, 0, 2), seasonal_order=(0, 1, 2, 24),
                 enforce_stationarity=False, enforce_invertibility=False).fit()
+
     print(m.summary())
     print(f'#################### {datetime.now().strftime("%d/%m/%Y %H:%M:%S")} ####################', file=f)
     print(f'SARIMA model summary\n', file=f)
     print(m.summary(), file=f)
 
-    forecast = m.get_forecast(steps=48, signal_only=True)
+    forecast = m.get_forecast(steps=forecast_horizon, signal_only=True)
     forecast_interval = forecast.conf_int()
 
     print('\nSARIMA forecasting:')
@@ -317,13 +315,9 @@ def sarima_forecasting(data_file_name: str):
     print('\nSARIMA forecasting interval:')
     print(forecast_interval)
 
-    data_range = pd.date_range('2022-12-29', '2022-12-31', freq='H')
-    data_frame = data_range.to_frame().iloc[:-1, :]
-    data_frame.columns = ['ds']
-
     print(f'\nSARIMA execution time: {(time.time() - start_time):3.2f} sec.')
 
-    x_date = data_frame['ds']
+    x_date = df_date['ds']
     y_true = df_test['y']
     y_pred = forecast.predicted_mean
     ypred_lower = forecast_interval.iloc[:, 0]
@@ -333,7 +327,77 @@ def sarima_forecasting(data_file_name: str):
     performance_visualisation(x_date, y_true, y_pred, ypred_lower, ypred_upper, 'SARIMA', 'Fig3.png')
 
 
+def train_test_split(data_file_name: str, start_date_train, end_date_train, start_date_test, end_date_test, add_hour):
+
+    global df_train
+    global df_test
+    global df_date
+    global forecast_horizon
+
+    # Overwrite existing report file
+    report_file = os.path.realpath(os.path.join(dir_name, '..', 'data', 'forecasting-report.txt'))
+    f = open(report_file, 'w')
+
+    df = pd.read_csv(data_file_name, parse_dates=['DT'])
+    df.rename(columns={'DT': 'ds', 'Measurement': 'y'}, inplace=True)
+
+    # Обучающая и тестовая выборки
+    if add_hour:
+        df_train = df[(df['ds'] >= start_date_train) & (df['ds'] < end_date_train)]
+        df_test = df[(df['ds'] >= start_date_test) & (df['ds'] <= end_date_test)]
+    else:
+        df_train = df[(df['ds'] >= start_date_train) & (df['ds'] < end_date_train)]
+        df_test = df[(df['ds'] >= start_date_test) & (df['ds'] < end_date_test)]
+
+    # data_range = pd.date_range('2022-12-29', '2022-12-31', freq='H')
+    data_range = pd.date_range(start_date_test, end_date_test, freq='H')
+
+    if not add_hour:
+        df_date = data_range.to_frame().iloc[:-1, :]
+    else:
+        df_date = data_range.to_frame()
+
+    df_date.columns = ['ds']
+
+    # Расчет горизонта прогноза
+    duration = end_date_test - start_date_test
+    duration_seconds = duration.total_seconds()
+    forecast_horizon = int(divmod(duration_seconds, 3600)[0])
+
+    if add_hour:
+        forecast_horizon = forecast_horizon + 1
+
+    print(f'\nFull dataset ({len(df.index)} rows) YYYY-MM-DD HH:MM:SS')
+    print(f'\nFull dataset ({len(df.index)} rows) YYYY-MM-DD HH:MM:SS', file=f)
+    print(df)
+    print(df, file=f)
+
+    print(f'\nTrain dataset ({len(df_train.index)} rows)')
+    print(f'\nTrain dataset ({len(df_train.index)} rows)', file=f)
+    print(df_train)
+    print(df_train, file=f)
+
+    print(f'\nTest dataset ({len(df_test.index)} rows)')
+    print(f'\nTest dataset ({len(df_test.index)} rows)', file=f)
+    print(df_test)
+    print(df_test, file=f)
+
+    print(f'\nDate dataset ({len(df_date.index)} rows)')
+    print(f'\nDate dataset ({len(df_date.index)} rows)', file=f)
+    print(df_date)
+    print(df_date, file=f)
+
+    print(f'\nForecast horizon: {forecast_horizon}')
+    print(f'\nForecast horizon: {forecast_horizon}', file=f)
+
+    f.close()
+
+
 if __name__ == '__main__':
+    print(f'CALCULATION STARTED AT {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
+
+    start = time.time()
+
     # File names
     rep_file_name = os.path.realpath(os.path.join(dir_name, '..', 'data', 'report_2022_12_8__2023_1_1.csv'))
     dat_file_name = os.path.realpath(os.path.join(dir_name, '..', 'data', 'data.csv'))
@@ -342,12 +406,25 @@ if __name__ == '__main__':
     col_name = 'Influent'
 
     # Data Preprocessing
-    # data_preprocessing(rep_file_name, col_name, dat_file_name)
+    start_date_train = dt.datetime(2022, 12, 12)
+    end_date_train = dt.datetime(2022, 12, 29)
+    start_date_test = dt.datetime(2022, 12, 29)
+    end_date_test = dt.datetime(2022, 12, 31)
+    add_hour = True
+
+    data_preprocessing(rep_file_name, col_name, dat_file_name,
+                       start_date_train, end_date_train, start_date_test, end_date_test, add_hour)
+
+    # Разбивка датасета на тестовую и обучающую выборки
+    train_test_split(dat_file_name, start_date_train, end_date_train, start_date_test, end_date_test, add_hour)
 
     # Prophet Forecasting
-    prophet_forecasting(dat_file_name)
+    prophet_forecasting()
 
     # SARIMA Tuning
-    # sarima_tuning(dat_file_name)
+    sarima_tuning()
+
     # SARIMA Forecasting
-    sarima_forecasting(dat_file_name)
+    sarima_forecasting()
+
+    print(f'\nDONE. TOTAL EXECUTION TIME: {(time.time() - start):3.2f} sec.')

@@ -1,5 +1,12 @@
 Evaluation of the Machine Learning Techniques for Forecasting the Seasonal Time Series
 
+Полезная книга (можно взять теориию по некоторым методам - SARIMA, Holt-Winters)
+https://otexts.com/fpp3/
+Forecasting: Principles and Practice (3rd ed)
+Rob J Hyndman and George Athanasopoulos
+Monash University, Australia
+
+
 1. Загрузить данные и преобразовать из в DateFrame
 Учитывать формат даты / времени
 https://facebook.github.io/prophet/docs/quick_start.html
@@ -58,3 +65,24 @@ https://pypi.org/project/pmdarima/
 uncertainty interval
 https://www.geeksforgeeks.org/how-to-calculate-confidence-intervals-in-python/
 https://stackoverflow.com/questions/15033511/compute-a-confidence-interval-from-sample-data
+
+
+Еще один метод
+https://iopscience.iop.org/article/10.1088/1757-899X/407/1/012153
+
+https://timeseriesreasoning.com/contents/holt-winters-exponential-smoothing/
+
+
+Посмотреть. Статью. Анализ сезонных жанных
+https://www.sciencedirect.com/science/article/pii/S2667096822000027
+Посмотреть
+https://www.sciencedirect.com/science/article/abs/pii/S157407060501013X
+
+
+Пример реализации Holt-Winters
+https://stackoverflow.com/questions/50785479/holt-winters-time-series-forecasting-with-statsmodels
+https://num.pyro.ai/en/stable/examples/holt_winters.html
+
+Описание метода Holt-Winters Exponential Smoothing
+https://www.analyticsvidhya.com/blog/2021/08/holt-winters-method-for-time-series-analysis/
+https://timeseriesreasoning.com/contents/holt-winters-exponential-smoothing/

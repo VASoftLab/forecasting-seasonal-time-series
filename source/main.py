@@ -15,9 +15,12 @@ from sklearn.metrics import mean_absolute_percentage_error as mape
 
 from statsmodels.tsa.stattools import adfuller
 from statsmodels.tsa.api import SARIMAX
+from statsmodels.tsa.holtwinters import ExponentialSmoothing
 
 from collections import namedtuple
 from tabulate import tabulate
+
+from statistics import NormalDist
 
 import pmdarima as pm
 
@@ -138,6 +141,81 @@ def data_preprocessing(report_file_name: str, column_name: str, data_file_name: 
     manager = plt.get_current_fig_manager()
     manager.full_screen_toggle()
     plt.show()
+
+
+def train_test_split(data_file_name: str, start_date_train, end_date_train, start_date_test, end_date_test, add_hour):
+
+    global df_train
+    global df_test
+    global df_date
+    global forecast_horizon
+
+    # Overwrite existing report file
+    report_file = os.path.realpath(os.path.join(dir_name, '..', 'data', 'forecasting-report.txt'))
+    f = open(report_file, 'w')
+
+    df = pd.read_csv(data_file_name, parse_dates=['DT'])
+    df.rename(columns={'DT': 'ds', 'Measurement': 'y'}, inplace=True)
+
+    # Обучающая и тестовая выборки
+    if add_hour:
+        df_train = df[(df['ds'] >= start_date_train) & (df['ds'] < end_date_train)]
+        df_test = df[(df['ds'] >= start_date_test) & (df['ds'] <= end_date_test)]
+    else:
+        df_train = df[(df['ds'] >= start_date_train) & (df['ds'] < end_date_train)]
+        df_test = df[(df['ds'] >= start_date_test) & (df['ds'] < end_date_test)]
+
+    # data_range = pd.date_range('2022-12-29', '2022-12-31', freq='H')
+    data_range = pd.date_range(start_date_test, end_date_test, freq='H')
+
+    if not add_hour:
+        df_date = data_range.to_frame().iloc[:-1, :]
+    else:
+        df_date = data_range.to_frame()
+
+    df_date.columns = ['ds']
+
+    # Расчет горизонта прогноза
+    duration = end_date_test - start_date_test
+    duration_seconds = duration.total_seconds()
+    forecast_horizon = int(divmod(duration_seconds, 3600)[0])
+
+    if add_hour:
+        forecast_horizon = forecast_horizon + 1
+
+    print(f'\nFull dataset ({len(df.index)} rows) YYYY-MM-DD HH:MM:SS')
+    print(f'\nFull dataset ({len(df.index)} rows) YYYY-MM-DD HH:MM:SS', file=f)
+    print(df)
+    print(df, file=f)
+
+    print(f'\nTrain dataset ({len(df_train.index)} rows)')
+    print(f'\nTrain dataset ({len(df_train.index)} rows)', file=f)
+    print(df_train)
+    print(df_train, file=f)
+
+    print(f'\nTest dataset ({len(df_test.index)} rows)')
+    print(f'\nTest dataset ({len(df_test.index)} rows)', file=f)
+    print(df_test)
+    print(df_test, file=f)
+
+    print(f'\nDate dataset ({len(df_date.index)} rows)')
+    print(f'\nDate dataset ({len(df_date.index)} rows)', file=f)
+    print(df_date)
+    print(df_date, file=f)
+
+    print(f'\nForecast horizon: {forecast_horizon}')
+    print(f'\nForecast horizon: {forecast_horizon}', file=f)
+
+    f.close()
+
+
+def get_confidence_intervals(data, confidence=0.95):
+    dist = NormalDist.from_samples(data)
+    z = NormalDist().inv_cdf((1 + confidence) / 2.)
+    h = dist.stdev * z / ((len(data) - 1) ** .5)
+    lower = data - h*2
+    upper = data + h*2
+    return lower, upper
 
 
 # Оценка производительности метода
@@ -327,70 +405,25 @@ def sarima_forecasting():
     performance_visualisation(x_date, y_true, y_pred, ypred_lower, ypred_upper, 'SARIMA', 'Fig3.png')
 
 
-def train_test_split(data_file_name: str, start_date_train, end_date_train, start_date_test, end_date_test, add_hour):
+# Прогнозирование с помощью Holt-Winters Exponential Smoothing
+def holtwinters_forecasting():
+    start_time = time.time()
 
-    global df_train
-    global df_test
-    global df_date
-    global forecast_horizon
+    data = df_train['y']
+    m = ExponentialSmoothing(data, seasonal='add', seasonal_periods=24).fit()
+    forecast = m.forecast(steps=forecast_horizon)
+    print('============================================')
+    print(forecast)
+    print(f'\nHolt-Winters ES execution time: {(time.time() - start_time):3.2f} sec.')
 
-    # Overwrite existing report file
-    report_file = os.path.realpath(os.path.join(dir_name, '..', 'data', 'forecasting-report.txt'))
-    f = open(report_file, 'w')
+    x_date = df_date['ds']
+    y_true = df_test['y']
+    y_pred = forecast.values
+    ypred_lower, ypred_upper = get_confidence_intervals(forecast.values)
 
-    df = pd.read_csv(data_file_name, parse_dates=['DT'])
-    df.rename(columns={'DT': 'ds', 'Measurement': 'y'}, inplace=True)
-
-    # Обучающая и тестовая выборки
-    if add_hour:
-        df_train = df[(df['ds'] >= start_date_train) & (df['ds'] < end_date_train)]
-        df_test = df[(df['ds'] >= start_date_test) & (df['ds'] <= end_date_test)]
-    else:
-        df_train = df[(df['ds'] >= start_date_train) & (df['ds'] < end_date_train)]
-        df_test = df[(df['ds'] >= start_date_test) & (df['ds'] < end_date_test)]
-
-    # data_range = pd.date_range('2022-12-29', '2022-12-31', freq='H')
-    data_range = pd.date_range(start_date_test, end_date_test, freq='H')
-
-    if not add_hour:
-        df_date = data_range.to_frame().iloc[:-1, :]
-    else:
-        df_date = data_range.to_frame()
-
-    df_date.columns = ['ds']
-
-    # Расчет горизонта прогноза
-    duration = end_date_test - start_date_test
-    duration_seconds = duration.total_seconds()
-    forecast_horizon = int(divmod(duration_seconds, 3600)[0])
-
-    if add_hour:
-        forecast_horizon = forecast_horizon + 1
-
-    print(f'\nFull dataset ({len(df.index)} rows) YYYY-MM-DD HH:MM:SS')
-    print(f'\nFull dataset ({len(df.index)} rows) YYYY-MM-DD HH:MM:SS', file=f)
-    print(df)
-    print(df, file=f)
-
-    print(f'\nTrain dataset ({len(df_train.index)} rows)')
-    print(f'\nTrain dataset ({len(df_train.index)} rows)', file=f)
-    print(df_train)
-    print(df_train, file=f)
-
-    print(f'\nTest dataset ({len(df_test.index)} rows)')
-    print(f'\nTest dataset ({len(df_test.index)} rows)', file=f)
-    print(df_test)
-    print(df_test, file=f)
-
-    print(f'\nDate dataset ({len(df_date.index)} rows)')
-    print(f'\nDate dataset ({len(df_date.index)} rows)', file=f)
-    print(df_date)
-    print(df_date, file=f)
-
-    print(f'\nForecast horizon: {forecast_horizon}')
-    print(f'\nForecast horizon: {forecast_horizon}', file=f)
-
-    f.close()
+    performance_evaluation(y_true, y_pred, 'Holt-Winters Exponential Smoothing')
+    performance_visualisation(x_date, y_true, y_pred, ypred_lower, ypred_upper,
+                              'Holt-Winters Exponential Smoothing', 'Fig4.png')
 
 
 if __name__ == '__main__':
@@ -412,19 +445,22 @@ if __name__ == '__main__':
     end_date_test = dt.datetime(2022, 12, 31)
     add_hour = True
 
-    data_preprocessing(rep_file_name, col_name, dat_file_name,
-                       start_date_train, end_date_train, start_date_test, end_date_test, add_hour)
+    # data_preprocessing(rep_file_name, col_name, dat_file_name,
+    #                    start_date_train, end_date_train, start_date_test, end_date_test, add_hour)
 
     # Разбивка датасета на тестовую и обучающую выборки
     train_test_split(dat_file_name, start_date_train, end_date_train, start_date_test, end_date_test, add_hour)
 
     # Prophet Forecasting
-    prophet_forecasting()
+    # prophet_forecasting()
 
     # SARIMA Tuning
-    sarima_tuning()
+    # sarima_tuning()
 
     # SARIMA Forecasting
-    sarima_forecasting()
+    # sarima_forecasting()
+
+    # Holt-Winters ES Forecasting
+    holtwinters_forecasting()
 
     print(f'\nDONE. TOTAL EXECUTION TIME: {(time.time() - start):3.2f} sec.')

@@ -86,3 +86,9 @@ https://num.pyro.ai/en/stable/examples/holt_winters.html
 Описание метода Holt-Winters Exponential Smoothing
 https://www.analyticsvidhya.com/blog/2021/08/holt-winters-method-for-time-series-analysis/
 https://timeseriesreasoning.com/contents/holt-winters-exponential-smoothing/
+
+
+https://stackoverflow.com/questions/70277316/how-to-take-confidence-interval-of-statsmodels-tsa-holtwinters-exponentialsmooth
+
+ETSModel
+https://www.statsmodels.org/dev/examples/notebooks/generated/ets.html

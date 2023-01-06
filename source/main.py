@@ -16,6 +16,7 @@ from sklearn.metrics import mean_absolute_percentage_error as mape
 from statsmodels.tsa.stattools import adfuller
 from statsmodels.tsa.api import SARIMAX
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
+from statsmodels.tsa.exponential_smoothing.ets import ETSModel
 
 from collections import namedtuple
 from tabulate import tabulate
@@ -426,6 +427,33 @@ def holtwinters_forecasting():
                               'Holt-Winters Exponential Smoothing', 'Fig4.png')
 
 
+# Прогнозирование с помощью ETS Model (модификация Holt-Winters Exponential Smoothing)
+def etsmodel_forecasting():
+    start_time = time.time()
+
+    data = df_train['y']
+    m = ETSModel(endog=data, seasonal='add', seasonal_periods=24).fit()
+
+    prediction = m.get_prediction(start=df_test.index[0], end=df_test.index[-1])
+    ci = prediction.pred_int(alpha=.05)  # confidence interval 0.95
+    forecast = pd.concat([prediction.predicted_mean, ci], axis=1)
+    forecast.columns = ['yhat', 'yhat_lower', 'yhat_upper']
+
+    print('============================================')
+    print(forecast)
+    print(f'\nETS model execution time: {(time.time() - start_time):3.2f} sec.')
+
+    x_date = df_date['ds']
+    y_true = df_test['y']
+    y_pred = forecast['yhat']
+    ypred_lower = forecast['yhat_lower']
+    ypred_upper = forecast['yhat_upper']
+
+    performance_evaluation(y_true, y_pred, 'ETS Model')
+    performance_visualisation(x_date, y_true, y_pred, ypred_lower, ypred_upper,
+                              'ETS Model', 'Fig5.png')
+
+
 if __name__ == '__main__':
     print(f'CALCULATION STARTED AT {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
 
@@ -462,5 +490,8 @@ if __name__ == '__main__':
 
     # Holt-Winters ES Forecasting
     holtwinters_forecasting()
+
+    # ETS Model
+    etsmodel_forecasting()
 
     print(f'\nDONE. TOTAL EXECUTION TIME: {(time.time() - start):3.2f} sec.')

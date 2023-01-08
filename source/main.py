@@ -31,6 +31,8 @@ from keras.layers import LSTM
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_squared_error
 
+from xgboost import XGBRegressor
+
 # Глобальная переменная для хранения настроек фигур
 FigureSettings = namedtuple('FigureSettings', ['figWidth', 'figHeight', 'dpi', 'labelXSize', 'labelYSize',
                                                'tickMajorLabelSize', 'tickMinorLabelSize', 'tickXLabelRotation',
@@ -567,12 +569,12 @@ def lstm_forecasting(internal_units, epoch_count):
     print(model.summary())
     print(model.summary(), file=f)
 
-    forecast = model.predict(X_test)
-    forecast = pd.DataFrame(forecast)
+    yhat = model.predict(X_test)
+    yhat = pd.DataFrame(yhat)
 
     x_date = df_date['ds']
     y_true = scalerY.inverse_transform(y_test)
-    y_pred = forecast.values
+    y_pred = yhat.values
     y_pred = scalerY.inverse_transform(y_pred)
 
     ypred_lower, ypred_upper = get_confidence_intervals(pd.DataFrame(y_pred).values.flatten())
@@ -580,6 +582,47 @@ def lstm_forecasting(internal_units, epoch_count):
     performance_evaluation(y_true, y_pred, 'LSTM')
     performance_visualisation(x_date, y_true, y_pred, ypred_lower, ypred_upper,
                               'Long short-term memory', 'Fig6.png')
+
+    f.close()
+
+
+def xgboost_forecasting(max_depth, learning_rate, n_estimators, gamma):
+    global X_train
+    global y_train
+    global X_test
+    global y_test
+    global look_back
+
+    report_file = os.path.realpath(os.path.join(dir_name, '..', 'data', 'forecasting-report.txt'))
+    f = open(report_file, 'a')
+
+    print('XGBoost Model')
+    print('XGBoost Model', file=f)
+
+    model = XGBRegressor(objective='reg:squarederror',
+                         n_estimators=n_estimators,
+                         max_depth=max_depth,
+                         learning_rate=learning_rate,
+                         gamma=gamma)
+
+    model.fit(X_train, y_train)
+
+    print(model)
+    print(model, file=f)
+
+    yhat = model.predict(X_test)
+    yhat = pd.DataFrame(yhat)
+
+    x_date = df_date['ds']
+    y_true = scalerY.inverse_transform(y_test)
+    y_pred = yhat.values
+    y_pred = scalerY.inverse_transform(y_pred)
+
+    ypred_lower, ypred_upper = get_confidence_intervals(pd.DataFrame(y_pred).values.flatten())
+
+    performance_evaluation(y_true, y_pred, 'XGBoost')
+    performance_visualisation(x_date, y_true, y_pred, ypred_lower, ypred_upper,
+                              'XGBoost', 'Fig7.png')
 
     f.close()
 
@@ -624,12 +667,21 @@ if __name__ == '__main__':
     # ETS Model
     # etsmodel_forecasting()
 
-    # LSTM and XGBoost Dataset generation
     look_back = 12
-    dataset_generation(dat_file_name, start_date_train, end_date_train, start_date_test, end_date_test)
+    # LSTM Dataset generation
+    # dataset_generation(dat_file_name, start_date_train, end_date_train, start_date_test, end_date_test)
 
     internal_units = 128
     epoch_count = 100
-    lstm_forecasting(internal_units, epoch_count)
+    # lstm_forecasting(internal_units, epoch_count)
+
+    # XGBoost Dataset generation
+    max_depth = 6
+    learning_rate = 0.05
+    n_estimators = 5000
+    gamma = 0.1
+
+    dataset_generation(dat_file_name, start_date_train, end_date_train, start_date_test, end_date_test)
+    xgboost_forecasting(max_depth, learning_rate, n_estimators, gamma)
 
     print(f'\nDONE. TOTAL EXECUTION TIME: {(time.time() - start):3.2f} sec.')

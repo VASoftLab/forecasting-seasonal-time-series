@@ -92,3 +92,17 @@ https://stackoverflow.com/questions/70277316/how-to-take-confidence-interval-of-
 
 ETSModel
 https://www.statsmodels.org/dev/examples/notebooks/generated/ets.html
+
+
+LTSM
+https://machinelearningmastery.com/time-series-prediction-lstm-recurrent-neural-networks-python-keras/
+https://machinelearningmastery.com/time-series-forecasting-long-short-term-memory-network-python/
+https://curiousily.com/posts/time-series-forecasting-with-lstms-using-tensorflow-2-and-keras-in-python/
+
+ИСПОЛЬЗОВАТЬ ВО ВВЕДЕНИИ
+https://curiousily.com/posts/time-series-forecasting-with-lstms-using-tensorflow-2-and-keras-in-python/
+
+
+XGBoost
+https://machinelearningmastery.com/xgboost-for-time-series-forecasting/
+https://www.kaggle.com/code/robikscube/tutorial-time-series-forecasting-with-xgboost

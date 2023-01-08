@@ -25,6 +25,12 @@ from statistics import NormalDist
 
 import pmdarima as pm
 
+from keras.models import Sequential
+from keras.layers import Dense
+from keras.layers import LSTM
+from sklearn.preprocessing import MinMaxScaler
+from sklearn.metrics import mean_squared_error
+
 # Глобальная переменная для хранения настроек фигур
 FigureSettings = namedtuple('FigureSettings', ['figWidth', 'figHeight', 'dpi', 'labelXSize', 'labelYSize',
                                                'tickMajorLabelSize', 'tickMinorLabelSize', 'tickXLabelRotation',
@@ -53,6 +59,18 @@ forecast_horizon = 0
 df_train = pd.DataFrame()
 df_test = pd.DataFrame()
 df_date = pd.DataFrame()
+
+# Датафреймы для методов LSTM и XGBoost
+
+X_train = pd.DataFrame()
+y_train = pd.DataFrame()
+X_test = pd.DataFrame()
+y_test = pd.DataFrame()
+
+look_back = 0
+
+scalerX = MinMaxScaler(feature_range=(0, 1))
+scalerY = MinMaxScaler(feature_range=(0, 1))
 
 
 # Предварительная обработка данных
@@ -206,6 +224,80 @@ def train_test_split(data_file_name: str, start_date_train, end_date_train, star
 
     print(f'\nForecast horizon: {forecast_horizon}')
     print(f'\nForecast horizon: {forecast_horizon}', file=f)
+
+    f.close()
+
+
+def dataset_generation(data_file_name, start_date_train, end_date_train, start_date_test, end_date_test):
+    global X_train
+    global y_train
+    global X_test
+    global y_test
+
+    global look_back
+
+    global scalerX
+    global scalerY
+
+    report_file = os.path.realpath(os.path.join(dir_name, '..', 'data', 'forecasting-report.txt'))
+    f = open(report_file, 'a')
+
+    df = pd.read_csv(data_file_name, parse_dates=['DT'])
+    df.rename(columns={'DT': 'Timestamp', 'Measurement': 'y'}, inplace=True)
+
+    data = []
+    for i in range(len(df) - look_back):
+        data.append(
+            {
+                'y': df.iloc[i + look_back, 1],
+                'X': df.iloc[i:(i + look_back), 1].values
+            })
+
+    df_ = pd.DataFrame(data)
+
+    # Генерация имен колонок для нового датафрейма
+    col_names = []
+    # for i in reversed(range(look_back)):
+    #     col_names.append(f'lag {i + 1}')
+    for i in range(look_back):
+        col_names.append(f'X{i + 1}')
+
+    y = pd.DataFrame(df_['y'].to_list(), columns=['y'])
+    X = pd.DataFrame(df_['X'].to_list(), columns=col_names)
+
+    # Датафрейм с временными метками
+    T = df['Timestamp'][look_back:]
+    T.reset_index(drop=True, inplace=True)
+
+    print('Transformed dataset'.upper())
+    print('Transformed dataset'.upper(), file=f)
+    dataset = pd.concat([T, pd.DataFrame(y, columns=['y']), pd.DataFrame(X, columns=col_names)], axis=1)
+    print(dataset)
+    print(dataset, file=f)
+
+    # Масштабирование
+    X = scalerX.fit_transform(X)
+    y = scalerY.fit_transform(y)
+
+    # Итоговый датасет
+    dataset = pd.concat([T, pd.DataFrame(y, columns=['y']), pd.DataFrame(X, columns=col_names)], axis=1)
+
+    print('Transformed dataset with minmaxscaler'.upper())
+    print('Transformed dataset'.upper(), file=f)
+    print(dataset)
+    print(dataset, file=f)
+
+    # Разбивка на обучающую и тестовую выборки
+    train = dataset[dataset['Timestamp'] < start_date_test]
+    test = dataset[dataset['Timestamp'] >= start_date_test]
+    # Сброс индекса для тестовой выборки
+    test.reset_index(drop=True, inplace=True)
+
+    # Разбивка данных
+    X_train = train.iloc[:, 2:]
+    y_train = train.iloc[:, 1:2]
+    X_test = test.iloc[:, 2:]
+    y_test = test.iloc[:, 1:2]
 
     f.close()
 
@@ -454,6 +546,44 @@ def etsmodel_forecasting():
                               'ETS Model', 'Fig5.png')
 
 
+def lstm_forecasting(internal_units, epoch_count):
+    global X_train
+    global y_train
+    global X_test
+    global y_test
+    global look_back
+
+    report_file = os.path.realpath(os.path.join(dir_name, '..', 'data', 'forecasting-report.txt'))
+    f = open(report_file, 'a')
+
+    model = Sequential()
+    model.add(LSTM(internal_units, input_shape=(look_back, 1)))
+    model.add(Dense(1))
+    model.compile(loss='mean_squared_error', optimizer='adam')
+    model.fit(X_train, y_train, epochs=epoch_count, batch_size=1, verbose=1)
+
+    print('LSTM Model')
+    print('LSTM Model', file=f)
+    print(model.summary())
+    print(model.summary(), file=f)
+
+    forecast = model.predict(X_test)
+    forecast = pd.DataFrame(forecast)
+
+    x_date = df_date['ds']
+    y_true = scalerY.inverse_transform(y_test)
+    y_pred = forecast.values
+    y_pred = scalerY.inverse_transform(y_pred)
+
+    ypred_lower, ypred_upper = get_confidence_intervals(pd.DataFrame(y_pred).values.flatten())
+
+    performance_evaluation(y_true, y_pred, 'LSTM')
+    performance_visualisation(x_date, y_true, y_pred, ypred_lower, ypred_upper,
+                              'Long short-term memory', 'Fig6.png')
+
+    f.close()
+
+
 if __name__ == '__main__':
     print(f'CALCULATION STARTED AT {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
 
@@ -489,9 +619,17 @@ if __name__ == '__main__':
     # sarima_forecasting()
 
     # Holt-Winters ES Forecasting
-    holtwinters_forecasting()
+    # holtwinters_forecasting()
 
     # ETS Model
-    etsmodel_forecasting()
+    # etsmodel_forecasting()
+
+    # LSTM and XGBoost Dataset generation
+    look_back = 12
+    dataset_generation(dat_file_name, start_date_train, end_date_train, start_date_test, end_date_test)
+
+    internal_units = 128
+    epoch_count = 100
+    lstm_forecasting(internal_units, epoch_count)
 
     print(f'\nDONE. TOTAL EXECUTION TIME: {(time.time() - start):3.2f} sec.')

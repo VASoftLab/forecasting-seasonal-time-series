@@ -646,34 +646,34 @@ if __name__ == '__main__':
     end_date_test = dt.datetime(2022, 12, 31)
     add_hour = True
 
-    # data_preprocessing(rep_file_name, col_name, dat_file_name,
-    #                    start_date_train, end_date_train, start_date_test, end_date_test, add_hour)
+    data_preprocessing(rep_file_name, col_name, dat_file_name,
+                       start_date_train, end_date_train, start_date_test, end_date_test, add_hour)
 
     # Разбивка датасета на тестовую и обучающую выборки
     train_test_split(dat_file_name, start_date_train, end_date_train, start_date_test, end_date_test, add_hour)
 
     # Prophet Forecasting
-    # prophet_forecasting()
+    prophet_forecasting()
 
     # SARIMA Tuning
-    # sarima_tuning()
+    sarima_tuning()
 
     # SARIMA Forecasting
-    # sarima_forecasting()
+    sarima_forecasting()
 
     # Holt-Winters ES Forecasting
-    # holtwinters_forecasting()
+    holtwinters_forecasting()
 
     # ETS Model
-    # etsmodel_forecasting()
+    etsmodel_forecasting()
 
     look_back = 12
     # LSTM Dataset generation
-    # dataset_generation(dat_file_name, start_date_train, end_date_train, start_date_test, end_date_test)
+    dataset_generation(dat_file_name, start_date_train, end_date_train, start_date_test, end_date_test)
 
     internal_units = 128
     epoch_count = 100
-    # lstm_forecasting(internal_units, epoch_count)
+    lstm_forecasting(internal_units, epoch_count)
 
     # XGBoost Dataset generation
     max_depth = 6

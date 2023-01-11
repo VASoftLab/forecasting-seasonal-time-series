@@ -188,7 +188,6 @@ def train_test_split(data_file_name: str, start_date_train, end_date_train, star
         df_train = df[(df['ds'] >= start_date_train) & (df['ds'] < end_date_train)]
         df_test = df[(df['ds'] >= start_date_test) & (df['ds'] < end_date_test)]
 
-    # data_range = pd.date_range('2022-12-29', '2022-12-31', freq='H')
     data_range = pd.date_range(start_date_test, end_date_test, freq='H')
 
     if not add_hour:
@@ -366,14 +365,14 @@ def prophet_forecasting():
     # Создание объекта Prophet
     m = Prophet()
     m.fit(df_train)
-    train_time = f'{(time.time() - start_time): 3.2f}'
+    train_time = f'{(time.time() - start_time): .3f}'
 
     start_time = time.time()
     future = m.make_future_dataframe(periods=forecast_horizon, freq='60min', include_history=False)
 
     # Прогноз
     forecast = m.predict(future)
-    pred_time = f'{(time.time() - start_time): 3.2f}'
+    pred_time = f'{(time.time() - start_time): .3f}'
 
     x_date = forecast['ds']
     y_true = df_test['y']
@@ -423,7 +422,7 @@ def sarima_forecasting():
                             suppress_warnings=True,
                             stepwise=True)
 
-    train_time = f'{(time.time() - start_time): 3.2f}'
+    train_time = f'{(time.time() - start_time): .3f}'
 
     print(m.summary())
 
@@ -434,7 +433,7 @@ def sarima_forecasting():
 
     start_time = time.time()
     forecast = m.get_forecast(steps=forecast_horizon, signal_only=True)
-    pred_time = f'{(time.time() - start_time): 3.2f}'
+    pred_time = f'{(time.time() - start_time): .3f}'
 
     forecast_interval = forecast.conf_int()
 
@@ -447,7 +446,9 @@ def sarima_forecasting():
     performance_evaluation(y_true, y_pred, 'SARIMA', train_time, pred_time)
     performance_visualisation(x_date, y_true, y_pred, ypred_lower, ypred_upper, 'SARIMA', 'Fig3.png')
 
-    df_predictions['SARIMA'] = pd.DataFrame(y_pred)
+    df_ = pd.DataFrame(y_pred)
+    df_.reset_index(drop=True, inplace=True)
+    df_predictions['SARIMA'] = df_
 
 
 # Прогнозирование с помощью Holt-Winters Exponential Smoothing
@@ -457,11 +458,11 @@ def holtwinters_forecasting():
 
     start_time = time.time()
     m = ExponentialSmoothing(data, seasonal='add', seasonal_periods=24).fit()
-    train_time = f'{(time.time() - start_time): 3.2f}'
+    train_time = f'{(time.time() - start_time): .3f}'
 
     start_time = time.time()
     forecast = m.forecast(steps=forecast_horizon)
-    pred_time = f'{(time.time() - start_time): 3.2f}'
+    pred_time = f'{(time.time() - start_time): .3f}'
 
     x_date = df_date['ds']
     y_true = df_test['y']
@@ -483,11 +484,11 @@ def etsmodel_forecasting():
     # Создаем модель
     start_time = time.time()
     m = ETSModel(endog=data, seasonal='add', seasonal_periods=24).fit()
-    train_time = f'{(time.time() - start_time): 3.2f}'
+    train_time = f'{(time.time() - start_time): .3f}'
 
     start_time = time.time()
     prediction = m.get_prediction(start=df_test.index[0], end=df_test.index[-1])
-    pred_time = f'{(time.time() - start_time): 3.2f}'
+    pred_time = f'{(time.time() - start_time): .3f}'
 
     ci = prediction.pred_int(alpha=.05)  # confidence interval 0.95
     forecast = pd.concat([prediction.predicted_mean, ci], axis=1)
@@ -503,7 +504,9 @@ def etsmodel_forecasting():
     performance_visualisation(x_date, y_true, y_pred, ypred_lower, ypred_upper,
                               'ETS Model', 'Fig5.png')
 
-    df_predictions['ETS MODEL'] = pd.DataFrame(y_pred)
+    df_ = pd.DataFrame(y_pred)
+    df_.reset_index(drop=True, inplace=True)
+    df_predictions['ETS MODEL'] = pd.DataFrame(df_['yhat'])
 
 
 def lstm_forecasting(units, look_back, epochs, batch_size):

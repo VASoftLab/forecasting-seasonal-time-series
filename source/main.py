@@ -70,10 +70,25 @@ X_test = pd.DataFrame()
 y_test = pd.DataFrame()
 
 look_back = 0
+internal_units = 0
+batch_size = 0
+epochs = 0
 
 scalerX = MinMaxScaler(feature_range=(0, 1))
 scalerY = MinMaxScaler(feature_range=(0, 1))
 
+plot_show = False
+
+df_statistic = pd.DataFrame({'Method': pd.Series(dtype='str'),
+                             'R2': pd.Series(dtype='str'),
+                             'MSE': pd.Series(dtype='str'),
+                             'RMSE': pd.Series(dtype='str'),
+                             'MAE': pd.Series(dtype='str'),
+                             'MAPE': pd.Series(dtype='str'),
+                             'T.Time': pd.Series(dtype='str'),
+                             'P.Time': pd.Series(dtype='str')})
+
+df_predictions = pd.DataFrame(columns=['DT'])
 
 # Предварительная обработка данных
 def data_preprocessing(report_file_name: str, column_name: str, data_file_name: str,
@@ -87,10 +102,7 @@ def data_preprocessing(report_file_name: str, column_name: str, data_file_name: 
     start_time = time.time()
 
     # Чтение данных
-    print(f'Reading data from {report_file_name}')
     df = pd.read_csv(report_file_name, parse_dates=['DT'])
-    print('\nInitial dataframe')
-    print(df.head())
 
     # Формируем новый датасет только из двух столбцов - дата (DS) и значение (ColumnName)
     df_new = df[['DT', column_name]]
@@ -105,11 +117,6 @@ def data_preprocessing(report_file_name: str, column_name: str, data_file_name: 
 
     df_resample = pd.DataFrame(data=df_new[column_name].resample('H').mean())
 
-    # Новый датафрейм
-    # new_df = df_resample[['DT', column_name]]
-    # Установка индекса
-    # new_df = new_df.set_index('DT')
-
     # Фильтрация по временному кадру
     if add_hour:
         df_resample = df_resample[(df_resample.index >= start_date_train) & (df_resample.index <= end_date_test)]
@@ -118,12 +125,8 @@ def data_preprocessing(report_file_name: str, column_name: str, data_file_name: 
 
     # Изменяем заголовок столбца
     df_resample.columns = ['Measurement']
-    print('\nResampled dataframe')
-    print(df_resample.head())
     # Сохранить новый датафрейм в файл
     df_resample.to_csv(data_file_name)
-    print(f'\nNew file saved to {data_file_name}')
-    print(f'\nExecution time: {(time.time() - start_time):3.2f} sec.')
 
     # Визуализация
     values = df_resample['Measurement']
@@ -161,7 +164,9 @@ def data_preprocessing(report_file_name: str, column_name: str, data_file_name: 
 
     manager = plt.get_current_fig_manager()
     manager.full_screen_toggle()
-    plt.show()
+
+    if plot_show:
+        plt.show()
 
 
 def train_test_split(data_file_name: str, start_date_train, end_date_train, start_date_test, end_date_test, add_hour):
@@ -170,10 +175,7 @@ def train_test_split(data_file_name: str, start_date_train, end_date_train, star
     global df_test
     global df_date
     global forecast_horizon
-
-    # Overwrite existing report file
-    report_file = os.path.realpath(os.path.join(dir_name, '..', 'data', 'forecasting-report.txt'))
-    f = open(report_file, 'w')
+    global df_predictions
 
     df = pd.read_csv(data_file_name, parse_dates=['DT'])
     df.rename(columns={'DT': 'ds', 'Measurement': 'y'}, inplace=True)
@@ -195,6 +197,9 @@ def train_test_split(data_file_name: str, start_date_train, end_date_train, star
         df_date = data_range.to_frame()
 
     df_date.columns = ['ds']
+    df_predictions['DT'] = df_test['ds']
+    df_predictions['Y'] = df_test['y']
+    df_predictions.reset_index(drop=True, inplace=True)
 
     # Расчет горизонта прогноза
     duration = end_date_test - start_date_test
@@ -204,33 +209,13 @@ def train_test_split(data_file_name: str, start_date_train, end_date_train, star
     if add_hour:
         forecast_horizon = forecast_horizon + 1
 
-    print(f'\nFull dataset ({len(df.index)} rows) YYYY-MM-DD HH:MM:SS')
-    print(f'\nFull dataset ({len(df.index)} rows) YYYY-MM-DD HH:MM:SS', file=f)
-    print(df)
-    print(df, file=f)
 
-    print(f'\nTrain dataset ({len(df_train.index)} rows)')
-    print(f'\nTrain dataset ({len(df_train.index)} rows)', file=f)
-    print(df_train)
-    print(df_train, file=f)
-
-    print(f'\nTest dataset ({len(df_test.index)} rows)')
-    print(f'\nTest dataset ({len(df_test.index)} rows)', file=f)
-    print(df_test)
-    print(df_test, file=f)
-
-    print(f'\nDate dataset ({len(df_date.index)} rows)')
-    print(f'\nDate dataset ({len(df_date.index)} rows)', file=f)
-    print(df_date)
-    print(df_date, file=f)
-
-    print(f'\nForecast horizon: {forecast_horizon}')
-    print(f'\nForecast horizon: {forecast_horizon}', file=f)
-
-    f.close()
-
-
-def dataset_generation(data_file_name, start_date_train, end_date_train, start_date_test, end_date_test):
+def dataset_generation(data_file_name,
+                       data_file_name_nn,
+                       data_file_name_nn_scaler,
+                       data_file_name_nn_scaler_train,
+                       data_file_name_nn_scaler_test,
+                       start_date_test):
     global X_train
     global y_train
     global X_test
@@ -240,9 +225,6 @@ def dataset_generation(data_file_name, start_date_train, end_date_train, start_d
 
     global scalerX
     global scalerY
-
-    report_file = os.path.realpath(os.path.join(dir_name, '..', 'data', 'forecasting-report.txt'))
-    f = open(report_file, 'a')
 
     df = pd.read_csv(data_file_name, parse_dates=['DT'])
     df.rename(columns={'DT': 'Timestamp', 'Measurement': 'y'}, inplace=True)
@@ -259,10 +241,8 @@ def dataset_generation(data_file_name, start_date_train, end_date_train, start_d
 
     # Генерация имен колонок для нового датафрейма
     col_names = []
-    # for i in reversed(range(look_back)):
-    #     col_names.append(f'lag {i + 1}')
-    for i in range(look_back):
-        col_names.append(f'X{i + 1}')
+    for i in reversed(range(look_back)):
+        col_names.append(f'L{i + 1}')
 
     y = pd.DataFrame(df_['y'].to_list(), columns=['y'])
     X = pd.DataFrame(df_['X'].to_list(), columns=col_names)
@@ -271,11 +251,8 @@ def dataset_generation(data_file_name, start_date_train, end_date_train, start_d
     T = df['Timestamp'][look_back:]
     T.reset_index(drop=True, inplace=True)
 
-    print('Transformed dataset'.upper())
-    print('Transformed dataset'.upper(), file=f)
     dataset = pd.concat([T, pd.DataFrame(y, columns=['y']), pd.DataFrame(X, columns=col_names)], axis=1)
-    print(dataset)
-    print(dataset, file=f)
+    dataset.to_csv(data_file_name_nn)
 
     # Масштабирование
     X = scalerX.fit_transform(X)
@@ -283,15 +260,13 @@ def dataset_generation(data_file_name, start_date_train, end_date_train, start_d
 
     # Итоговый датасет
     dataset = pd.concat([T, pd.DataFrame(y, columns=['y']), pd.DataFrame(X, columns=col_names)], axis=1)
-
-    print('Transformed dataset with minmaxscaler'.upper())
-    print('Transformed dataset'.upper(), file=f)
-    print(dataset)
-    print(dataset, file=f)
+    dataset.to_csv(data_file_name_nn_scaler)
 
     # Разбивка на обучающую и тестовую выборки
     train = dataset[dataset['Timestamp'] < start_date_test]
+    train.to_csv(data_file_name_nn_scaler_train)
     test = dataset[dataset['Timestamp'] >= start_date_test]
+    test.to_csv(data_file_name_nn_scaler_test)
     # Сброс индекса для тестовой выборки
     test.reset_index(drop=True, inplace=True)
 
@@ -300,8 +275,6 @@ def dataset_generation(data_file_name, start_date_train, end_date_train, start_d
     y_train = train.iloc[:, 1:2]
     X_test = test.iloc[:, 2:]
     y_test = test.iloc[:, 1:2]
-
-    f.close()
 
 
 def get_confidence_intervals(data, confidence=0.95):
@@ -317,7 +290,10 @@ def get_confidence_intervals(data, confidence=0.95):
 def performance_evaluation(y_true: pd.DataFrame,
                            y_pred: pd.DataFrame,
                            method_name: str,
-                           save_to_file: bool = True):
+                           train_time: str,
+                           pred_time: str):
+
+    global df_statistic
 
     r2_value = r2(y_true, y_pred)
     mse_value = mse(y_true, y_pred)
@@ -325,33 +301,38 @@ def performance_evaluation(y_true: pd.DataFrame,
     mae_value = mae(y_true, y_pred)
     mape_value = mape(y_true, y_pred)
 
-    print(f'\nPerformance Evaluation for {method_name}')
-    print(f'R2: {r2_value:3.2f}')
-    print(f'MSE: {mse_value:3.2f}')
-    print(f'RMSE: {rmse_value:3.2f}')
-    print(f'MAE: {mae_value:3.2f}')
-    print(f'MAPE: {mape_value:3.2f}%')
+    print(f'\n=================================================================')
+    print(f'Performance Evaluation for {method_name}')
+    print(f'R2: {r2_value:.3f}')
+    print(f'MSE: {mse_value:.3f}')
+    print(f'RMSE: {rmse_value:.3f}')
+    print(f'MAE: {mae_value:.3f}')
+    print(f'MAPE: {mape_value:.3f}')
 
-    if save_to_file:
-        report_file = os.path.realpath(os.path.join(dir_name, '..', 'data', 'forecasting-report.txt'))
-        f = open(report_file, 'a')
+    #st = {'Method': method_name,
+    #      'R2': f'{r2_value:.3f}',
+    #      'MSE': f'{mse_value:.3f}',
+    #      'RMSE': f'{rmse_value:.3f}',
+    #      'MAE': f'{mae_value:.3f}',
+    #      'MAPE': f'{mape_value:.3f}',
+    #      'T.Time': train_time,
+    #      'P.Time': pred_time}
+    #df_statistic = df_statistic.append(st, ignore_index=True)
 
-        print(f'#################### {datetime.now().strftime("%d/%m/%Y %H:%M:%S")} ####################', file=f)
-        print(f'Performance Evaluation for {method_name.upper()} method\n', file=f)
+    item = [[method_name, f'{r2_value:.3f}', f'{mse_value:.3f}', f'{rmse_value:.3f}', f'{mae_value:.3f}',
+             f'{mape_value:.3f}', train_time, pred_time]]
+    cols = ['Method', 'R2', 'MSE', 'RMSE', 'MAE', 'MAPE', 'T.Time', 'P.Time']
 
-        table = [['METRIC', 'VALUE'],
-                 ['R2', f'{r2_value:3.2f}'],
-                 ['MSE', f'{mse_value:3.2f}'],
-                 ['RMSE', f'{rmse_value:3.2f}'],
-                 ['MAE', f'{mae_value:3.2f}'],
-                 ['MAPE', f'{mape_value:3.2f}%']]
-        print(tabulate(table, headers='firstrow', tablefmt='github'), file=f)
-        print('\n', file=f)
+    df = pd.DataFrame(item, columns=cols)
+    df.reset_index(drop=True, inplace=True)
+    df_statistic.reset_index(drop=True, inplace=True)
 
-        f.close()
+    df_statistic = pd.concat([df_statistic, df], axis=0, ignore_index=True)
 
 
 def performance_visualisation(x_date, y_true, y_pred, ypred_lower, ypred_upper, method_name, fig_file_name):
+    global plot_show
+
     fig, ax = plt.subplots(figsize=(fset.figWidth, fset.figHeight))
     fig.set_dpi(fset.dpi)
     ax.plot(x_date, y_pred, '-')
@@ -374,26 +355,25 @@ def performance_visualisation(x_date, y_true, y_pred, ypred_lower, ypred_upper, 
 
     manager = plt.get_current_fig_manager()
     manager.full_screen_toggle()
-    plt.show()
+
+    if plot_show:
+        plt.show()
 
 
 # Прогнозирование с помощью метода Prophet
 def prophet_forecasting():
     start_time = time.time()
-
     # Создание объекта Prophet
     m = Prophet()
     m.fit(df_train)
+    train_time = f'{(time.time() - start_time): 3.2f}'
+
+    start_time = time.time()
     future = m.make_future_dataframe(periods=forecast_horizon, freq='60min', include_history=False)
-    print('\nProphet future')
-    print(future)
 
     # Прогноз
     forecast = m.predict(future)
-    print('\nforecast')
-    print(forecast[['ds', 'yhat', 'yhat_lower', 'yhat_upper']])
-
-    print(f'\nExecution time: {(time.time() - start_time):3.2f} sec.')
+    pred_time = f'{(time.time() - start_time): 3.2f}'
 
     x_date = forecast['ds']
     y_true = df_test['y']
@@ -401,44 +381,32 @@ def prophet_forecasting():
     ypred_lower = forecast['yhat_lower']
     ypred_upper = forecast['yhat_upper']
 
-    performance_evaluation(y_true, y_pred, 'Prophet')
+    performance_evaluation(y_true, y_pred, 'Prophet', train_time, pred_time)
     performance_visualisation(x_date, y_true, y_pred, ypred_lower, ypred_upper, 'Prophet', 'Fig2.png')
 
+    df_predictions['PROPHET'] = y_pred
 
-# Настройка модели SARIMA
-def sarima_tuning():
 
-    start_time = time.time()
-    report_file = os.path.realpath(os.path.join(dir_name, '..', 'data', 'forecasting-report.txt'))
-    f = open(report_file, 'a')
-
+# Прогнозирование с помощью метода SARIMA
+def sarima_forecasting():
     # Данные
     data = df_train['y']
 
     # Augmented Dickey-Fuller test
     adf = adfuller(data, autolag='AIC')
     print(f'Augmented Dickey-Fuller Test for SARIMA method\n')
-    print(f'#################### {datetime.now().strftime("%d/%m/%Y %H:%M:%S")} ####################', file=f)
-    print(f'Augmented Dickey-Fuller Test for SARIMA method\n', file=f)
     print("1. ADF : ", adf[0])
-    print("1. ADF : ", adf[0], file=f)
     print("2. P-Value : ", adf[1])
-    print("2. P-Value : ", adf[1], file=f)
     print("3. Num Of Lags : ", adf[2])
-    print("3. Num Of Lags : ", adf[2], file=f)
     print("4. Num Of Observations Used For ADF Regression and Critical Values Calculation :", adf[3])
-    print("4. Num Of Observations Used For ADF Regression and Critical Values Calculation :", adf[3], file=f)
     print("5. Critical Values :")
-    print("5. Critical Values :", file=f)
     for key, val in adf[4].items():
         print("\t", key, ": ", val)
-        print("\t", key, ": ", val, file=f)
 
+    start_time = time.time()
     # Подбор параметров
     # https://alkaline-ml.com/pmdarima/modules/generated/pmdarima.arima.auto_arima.html#pmdarima.arima.auto_arima
     print('\nAutoARIMA\n')
-    print(f'#################### {datetime.now().strftime("%d/%m/%Y %H:%M:%S")} ####################', file=f)
-    print(f'AutoARIMA model summary\n', file=f)
     m = pm.arima.auto_arima(data,
                             start_p=1,
                             start_q=1,
@@ -455,40 +423,20 @@ def sarima_tuning():
                             suppress_warnings=True,
                             stepwise=True)
 
+    train_time = f'{(time.time() - start_time): 3.2f}'
+
     print(m.summary())
-    print(m.summary(), file=f)
-    f.close()
-
-    print(f'\nSARIMA tuning execution time: {(time.time() - start_time):3.2f} sec.')
-
-
-# Прогнозирование с помощью метода SARIMA
-def sarima_forecasting():
-
-    start_time = time.time()
-    report_file = os.path.realpath(os.path.join(dir_name, '..', 'data', 'forecasting-report.txt'))
-    f = open(report_file, 'a')
-
-    # Данные
-    data = df_train['y']
 
     m = SARIMAX(data, order=(3, 0, 2), seasonal_order=(0, 1, 2, 24),
                 enforce_stationarity=False, enforce_invertibility=False).fit()
 
     print(m.summary())
-    print(f'#################### {datetime.now().strftime("%d/%m/%Y %H:%M:%S")} ####################', file=f)
-    print(f'SARIMA model summary\n', file=f)
-    print(m.summary(), file=f)
 
+    start_time = time.time()
     forecast = m.get_forecast(steps=forecast_horizon, signal_only=True)
+    pred_time = f'{(time.time() - start_time): 3.2f}'
+
     forecast_interval = forecast.conf_int()
-
-    print('\nSARIMA forecasting:')
-    print(forecast.predicted_mean)
-    print('\nSARIMA forecasting interval:')
-    print(forecast_interval)
-
-    print(f'\nSARIMA execution time: {(time.time() - start_time):3.2f} sec.')
 
     x_date = df_date['ds']
     y_true = df_test['y']
@@ -496,46 +444,54 @@ def sarima_forecasting():
     ypred_lower = forecast_interval.iloc[:, 0]
     ypred_upper = forecast_interval.iloc[:, 1]
 
-    performance_evaluation(y_true, y_pred, 'SARIMA')
+    performance_evaluation(y_true, y_pred, 'SARIMA', train_time, pred_time)
     performance_visualisation(x_date, y_true, y_pred, ypred_lower, ypred_upper, 'SARIMA', 'Fig3.png')
+
+    df_predictions['SARIMA'] = pd.DataFrame(y_pred)
 
 
 # Прогнозирование с помощью Holt-Winters Exponential Smoothing
 def holtwinters_forecasting():
-    start_time = time.time()
-
+    # Данные
     data = df_train['y']
+
+    start_time = time.time()
     m = ExponentialSmoothing(data, seasonal='add', seasonal_periods=24).fit()
+    train_time = f'{(time.time() - start_time): 3.2f}'
+
+    start_time = time.time()
     forecast = m.forecast(steps=forecast_horizon)
-    print('============================================')
-    print(forecast)
-    print(f'\nHolt-Winters ES execution time: {(time.time() - start_time):3.2f} sec.')
+    pred_time = f'{(time.time() - start_time): 3.2f}'
 
     x_date = df_date['ds']
     y_true = df_test['y']
     y_pred = forecast.values
     ypred_lower, ypred_upper = get_confidence_intervals(forecast.values)
 
-    performance_evaluation(y_true, y_pred, 'Holt-Winters Exponential Smoothing')
+    performance_evaluation(y_true, y_pred, 'Holt-Winters Exponential Smoothing', train_time, pred_time)
     performance_visualisation(x_date, y_true, y_pred, ypred_lower, ypred_upper,
                               'Holt-Winters Exponential Smoothing', 'Fig4.png')
+
+    df_predictions['HOLT WINTER'] = y_pred
 
 
 # Прогнозирование с помощью ETS Model (модификация Holt-Winters Exponential Smoothing)
 def etsmodel_forecasting():
-    start_time = time.time()
-
+    # Данные
     data = df_train['y']
-    m = ETSModel(endog=data, seasonal='add', seasonal_periods=24).fit()
 
+    # Создаем модель
+    start_time = time.time()
+    m = ETSModel(endog=data, seasonal='add', seasonal_periods=24).fit()
+    train_time = f'{(time.time() - start_time): 3.2f}'
+
+    start_time = time.time()
     prediction = m.get_prediction(start=df_test.index[0], end=df_test.index[-1])
+    pred_time = f'{(time.time() - start_time): 3.2f}'
+
     ci = prediction.pred_int(alpha=.05)  # confidence interval 0.95
     forecast = pd.concat([prediction.predicted_mean, ci], axis=1)
     forecast.columns = ['yhat', 'yhat_lower', 'yhat_upper']
-
-    print('============================================')
-    print(forecast)
-    print(f'\nETS model execution time: {(time.time() - start_time):3.2f} sec.')
 
     x_date = df_date['ds']
     y_true = df_test['y']
@@ -543,33 +499,35 @@ def etsmodel_forecasting():
     ypred_lower = forecast['yhat_lower']
     ypred_upper = forecast['yhat_upper']
 
-    performance_evaluation(y_true, y_pred, 'ETS Model')
+    performance_evaluation(y_true, y_pred, 'ETS Model', train_time, pred_time)
     performance_visualisation(x_date, y_true, y_pred, ypred_lower, ypred_upper,
                               'ETS Model', 'Fig5.png')
 
+    df_predictions['ETS MODEL'] = pd.DataFrame(y_pred)
 
-def lstm_forecasting(internal_units, epoch_count):
+
+def lstm_forecasting(units, look_back, epochs, batch_size):
+
     global X_train
     global y_train
     global X_test
     global y_test
-    global look_back
 
-    report_file = os.path.realpath(os.path.join(dir_name, '..', 'data', 'forecasting-report.txt'))
-    f = open(report_file, 'a')
-
+    start_time = time.time()
     model = Sequential()
-    model.add(LSTM(internal_units, input_shape=(look_back, 1)))
+    model.add(LSTM(units=units, input_shape=(look_back, 1)))
     model.add(Dense(1))
     model.compile(loss='mean_squared_error', optimizer='adam')
-    model.fit(X_train, y_train, epochs=epoch_count, batch_size=1, verbose=1)
+    model.fit(X_train, y_train, epochs=epochs, batch_size=batch_size, verbose=1)
+    train_time = f'{(time.time() - start_time):.3f}'
 
-    print('LSTM Model')
-    print('LSTM Model', file=f)
+    print('\nLSTM model summary')
     print(model.summary())
-    print(model.summary(), file=f)
 
-    yhat = model.predict(X_test)
+    start_time = time.time()
+    yhat = model.predict(X_test, verbose=0)
+    pred_time = f'{(time.time() - start_time):.3f}'
+
     yhat = pd.DataFrame(yhat)
 
     x_date = df_date['ds']
@@ -579,11 +537,46 @@ def lstm_forecasting(internal_units, epoch_count):
 
     ypred_lower, ypred_upper = get_confidence_intervals(pd.DataFrame(y_pred).values.flatten())
 
-    performance_evaluation(y_true, y_pred, 'LSTM')
+    performance_evaluation(y_true, y_pred, 'LSTM (real test data)', train_time, pred_time)
     performance_visualisation(x_date, y_true, y_pred, ypred_lower, ypred_upper,
-                              'Long short-term memory', 'Fig6.png')
+                              'Long short-term memory (real test data)', 'Fig6.png')
 
-    f.close()
+    df_predictions['LSTM RTD'] = y_pred
+
+    # Synthetic test data generation
+    start_time = time.time()
+    x_train = X_train.iloc[-1:]
+    x_train = x_train.reset_index(drop=True)
+    y_pred = model.predict(x_train, verbose=0)
+
+    col_names = []
+    for i in reversed(range(look_back)):
+        col_names.append(f'L{i + 1}')
+
+    y_pred_new = []
+    for i in range(len(y_test)):
+        x_list = x_train.iloc[:, 1:].values.tolist()
+        y_list = y_pred.tolist()
+        x_train = pd.DataFrame(x_list[0] + y_list[0])
+        x_train = x_train.transpose()
+        x_train.columns = col_names
+        y_pred = model.predict(x_train, verbose=0)
+        y_pred_new.append(y_pred.tolist()[0])
+
+    pred_time = f'{(time.time() - start_time):.3f}'
+
+    x_date = df_date['ds']
+    y_true = scalerY.inverse_transform(y_test)
+    y_pred = y_pred_new
+    y_pred = scalerY.inverse_transform(y_pred)
+
+    ypred_lower, ypred_upper = get_confidence_intervals(pd.DataFrame(y_pred).values.flatten())
+
+    performance_evaluation(y_true, y_pred, 'LSTM (synthetic test data)', train_time, pred_time)
+    performance_visualisation(x_date, y_true, y_pred, ypred_lower, ypred_upper,
+                              'Long short-term memory (synthetic test data)', 'Fig7.png')
+
+    df_predictions['LSTM STD'] = y_pred
 
 
 def xgboost_forecasting(max_depth, learning_rate, n_estimators, gamma):
@@ -593,12 +586,9 @@ def xgboost_forecasting(max_depth, learning_rate, n_estimators, gamma):
     global y_test
     global look_back
 
-    report_file = os.path.realpath(os.path.join(dir_name, '..', 'data', 'forecasting-report.txt'))
-    f = open(report_file, 'a')
+    print('\nXGBoost Model summary')
 
-    print('XGBoost Model')
-    print('XGBoost Model', file=f)
-
+    start_time = time.time()
     model = XGBRegressor(objective='reg:squarederror',
                          n_estimators=n_estimators,
                          max_depth=max_depth,
@@ -606,11 +596,14 @@ def xgboost_forecasting(max_depth, learning_rate, n_estimators, gamma):
                          gamma=gamma)
 
     model.fit(X_train, y_train)
+    train_time = f'{(time.time() - start_time):.3f}'
 
     print(model)
-    print(model, file=f)
 
+    start_time = time.time()
     yhat = model.predict(X_test)
+    pred_time = f'{(time.time() - start_time):.3f}'
+
     yhat = pd.DataFrame(yhat)
 
     x_date = df_date['ds']
@@ -620,21 +613,70 @@ def xgboost_forecasting(max_depth, learning_rate, n_estimators, gamma):
 
     ypred_lower, ypred_upper = get_confidence_intervals(pd.DataFrame(y_pred).values.flatten())
 
-    performance_evaluation(y_true, y_pred, 'XGBoost')
+    performance_evaluation(y_true, y_pred, 'XGBoost (real test data)', train_time, pred_time)
     performance_visualisation(x_date, y_true, y_pred, ypred_lower, ypred_upper,
-                              'XGBoost', 'Fig7.png')
+                              'XGBoost (real test data)', 'Fig8.png')
 
-    f.close()
+    df_predictions['XGBoost RTD'] = y_pred
+
+    # Synthetic test data generation
+    start_time = time.time()
+    x_train = X_train.iloc[-1:]
+    x_train = x_train.reset_index(drop=True)
+    y_pred = model.predict(x_train)
+    y_pred = pd.DataFrame(y_pred)
+    y_pred = y_pred.values.tolist()
+
+    col_names = []
+    for i in reversed(range(look_back)):
+        col_names.append(f'L{i + 1}')
+
+    y_pred = model.predict(x_train)
+    y_pred = pd.DataFrame(y_pred)
+    y_pred = y_pred.values
+
+    y_pred_new = []
+    for i in range(len(y_test)):
+        x_list = x_train.iloc[:, 1:].values.tolist()
+        y_list = y_pred.tolist()
+        x_train = pd.DataFrame(x_list[0] + y_list[0])
+        x_train = x_train.transpose()
+        x_train.columns = col_names
+        y_pred = model.predict(x_train)
+        y_pred = pd.DataFrame(y_pred)
+        y_pred = y_pred.values
+        y_pred_new.append(y_pred.tolist()[0])
+
+    pred_time = f'{(time.time() - start_time):.3f}'
+    x_date = df_date['ds']
+    y_true = scalerY.inverse_transform(y_test)
+    y_pred = y_pred_new
+    y_pred = scalerY.inverse_transform(y_pred)
+
+    ypred_lower, ypred_upper = get_confidence_intervals(pd.DataFrame(y_pred).values.flatten())
+
+    performance_evaluation(y_true, y_pred, 'XGBoost (synthetic test data)', train_time, pred_time)
+    performance_visualisation(x_date, y_true, y_pred, ypred_lower, ypred_upper,
+                              'XGBoost (synthetic test data)', 'Fig9.png')
+
+    df_predictions['XGBoost STD'] = y_pred
 
 
 if __name__ == '__main__':
     print(f'CALCULATION STARTED AT {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}')
 
     start = time.time()
+    plot_show = False
 
     # File names
-    rep_file_name = os.path.realpath(os.path.join(dir_name, '..', 'data', 'report_2022_12_8__2023_1_1.csv'))
+    src_file_name = os.path.realpath(os.path.join(dir_name, '..', 'data', 'report_2022_12_8__2023_1_1.csv'))
     dat_file_name = os.path.realpath(os.path.join(dir_name, '..', 'data', 'data.csv'))
+    dat_file_name_nn = os.path.realpath(os.path.join(dir_name, '..', 'data', 'data_nn.csv'))
+    dat_file_name_nn_scaler = os.path.realpath(os.path.join(dir_name, '..', 'data', 'data_nn_scaler.csv'))
+    dat_file_name_nn_scaler_train = os.path.realpath(os.path.join(dir_name, '..', 'data', 'data_nn_scaler_train.csv'))
+    dat_file_name_nn_scaler_test = os.path.realpath(os.path.join(dir_name, '..', 'data', 'data_nn_scaler_test.csv'))
+    rep_file_name = os.path.realpath(os.path.join(dir_name, '..', 'data', 'forecasting-report.txt'))
+    prd_file_name = os.path.realpath(os.path.join(dir_name, '..', 'data', 'predictions.csv'))
 
     # Data column name
     col_name = 'Influent'
@@ -644,19 +686,16 @@ if __name__ == '__main__':
     end_date_train = dt.datetime(2022, 12, 29)
     start_date_test = dt.datetime(2022, 12, 29)
     end_date_test = dt.datetime(2022, 12, 31)
-    add_hour = True
+    add_hour = False
 
-    data_preprocessing(rep_file_name, col_name, dat_file_name,
-                       start_date_train, end_date_train, start_date_test, end_date_test, add_hour)
+    data_preprocessing(src_file_name, col_name, dat_file_name,
+                      start_date_train, end_date_train, start_date_test, end_date_test, add_hour)
 
     # Разбивка датасета на тестовую и обучающую выборки
     train_test_split(dat_file_name, start_date_train, end_date_train, start_date_test, end_date_test, add_hour)
 
     # Prophet Forecasting
     prophet_forecasting()
-
-    # SARIMA Tuning
-    sarima_tuning()
 
     # SARIMA Forecasting
     sarima_forecasting()
@@ -667,13 +706,21 @@ if __name__ == '__main__':
     # ETS Model
     etsmodel_forecasting()
 
-    look_back = 12
     # LSTM Dataset generation
-    dataset_generation(dat_file_name, start_date_train, end_date_train, start_date_test, end_date_test)
 
-    internal_units = 128
-    epoch_count = 100
-    lstm_forecasting(internal_units, epoch_count)
+    look_back = 48  # History interval
+    internal_units = 32  # The number of neurons
+    batch_size = 8  # Batch size
+    epoch_count = 200  # Epochs count
+
+    dataset_generation(dat_file_name,
+                       dat_file_name_nn,
+                       dat_file_name_nn_scaler,
+                       dat_file_name_nn_scaler_train,
+                       dat_file_name_nn_scaler_test,
+                       start_date_test)
+
+    lstm_forecasting(internal_units, look_back, epoch_count, batch_size)
 
     # XGBoost Dataset generation
     max_depth = 6
@@ -681,7 +728,28 @@ if __name__ == '__main__':
     n_estimators = 5000
     gamma = 0.1
 
-    dataset_generation(dat_file_name, start_date_train, end_date_train, start_date_test, end_date_test)
+    #dataset_generation(dat_file_name,
+    #                   dat_file_name_nn,
+    #                   dat_file_name_nn_scaler,
+    #                   dat_file_name_nn_scaler_train,
+    #                   dat_file_name_nn_scaler_test,
+    #                   start_date_test)
+
     xgboost_forecasting(max_depth, learning_rate, n_estimators, gamma)
 
-    print(f'\nDONE. TOTAL EXECUTION TIME: {(time.time() - start):3.2f} sec.')
+    f = open(rep_file_name, 'w')
+    print("\n")
+    print(tabulate(df_statistic,
+                   headers=['Method', 'R2', 'MSE', 'RMSE', 'MAE', 'MAPE', 'T.Time', 'P.Time'],
+                   tablefmt='github', disable_numparse=True, stralign="right"))
+
+    print(tabulate(df_statistic,
+                   headers=['Method', 'R2', 'MSE', 'RMSE', 'MAE', 'MAPE', 'T.Time', 'P.Time'],
+                   tablefmt='github', disable_numparse=True, stralign="right"), file=f)
+    f.close()
+
+    print("\n")
+    print(df_predictions.head())
+    df_predictions.to_csv(prd_file_name)
+
+    print(f'\nDONE. TOTAL EXECUTION TIME: {(time.time() - start):.3f} sec.')

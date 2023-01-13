@@ -680,6 +680,7 @@ if __name__ == '__main__':
     dat_file_name_nn_scaler_test = os.path.realpath(os.path.join(dir_name, '..', 'data', 'data_nn_scaler_test.csv'))
     rep_file_name = os.path.realpath(os.path.join(dir_name, '..', 'data', 'forecasting-report.txt'))
     prd_file_name = os.path.realpath(os.path.join(dir_name, '..', 'data', 'predictions.csv'))
+    prm_file_name = os.path.realpath(os.path.join(dir_name, '..', 'data', 'parameters.txt'))
 
     # Data column name
     col_name = 'Influent'
@@ -713,7 +714,7 @@ if __name__ == '__main__':
 
     look_back = 48  # History interval
     internal_units = 32  # The number of neurons
-    batch_size = 8  # Batch size
+    batch_size = 16  # Batch size
     epoch_count = 200  # Epochs count
 
     dataset_generation(dat_file_name,
@@ -754,5 +755,20 @@ if __name__ == '__main__':
     print("\n")
     print(df_predictions.head())
     df_predictions.to_csv(prd_file_name)
+
+    f = open(prm_file_name, 'w')
+
+    print(f'look_back: {look_back}\n', file=f)
+    print(f'internal_units: {internal_units}\n', file=f)
+    print(f'batch_size: {batch_size}\n', file=f)
+    print(f'epoch_count: {epoch_count}\n', file=f)
+
+    print(f'max_depth: {max_depth}\n', file=f)
+    print(f'learning_rate: {learning_rate}\n', file=f)
+    print(f'n_estimators: {n_estimators}\n', file=f)
+    print(f'gamma: {gamma}\n', file=f)
+
+    f.close()
+
 
     print(f'\nDONE. TOTAL EXECUTION TIME: {(time.time() - start):.3f} sec.')

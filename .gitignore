@@ -9,3 +9,10 @@ data/data_nn_scaler_test.csv
 data/data_nn_scaler_train.csv
 data/predictions.csv
 source/.idea/workspace.xml
+.idea/forecasting-seasonal-time-series.iml
+.idea/misc.xml
+.idea/modules.xml
+.idea/vcs.xml
+.idea/workspace.xml
+.idea/inspectionProfiles/profiles_settings.xml
+data/parameters.txt

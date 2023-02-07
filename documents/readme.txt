@@ -1,3 +1,9 @@
+Описание ETS метода
+https://docs.aws.amazon.com/forecast/latest/dg/aws-forecast-recipe-ets.html
+
+
+
+
 Evaluation of the Machine Learning Techniques for Forecasting the Seasonal Time Series
 
 Полезная книга (можно взять теориию по некоторым методам - SARIMA, Holt-Winters)
@@ -65,7 +71,7 @@ https://pypi.org/project/pmdarima/
 uncertainty interval
 https://www.geeksforgeeks.org/how-to-calculate-confidence-intervals-in-python/
 https://stackoverflow.com/questions/15033511/compute-a-confidence-interval-from-sample-data
-
+6
 
 Еще один метод
 https://iopscience.iop.org/article/10.1088/1757-899X/407/1/012153
